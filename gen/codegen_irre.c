@@ -5,6 +5,11 @@
 #define GP_MAX 8
 #define FP_MAX 8
 
+const char* R_ARG[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"};
+const char* R_SAVED = "r8";
+const char* R_TMP[] = {"r9", "r10"};
+const char* R_SCRATCH[] = {"r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18"};
+
 static FILE *output_file;
 static int depth;
 static Obj *current_fn;
@@ -29,15 +34,21 @@ static int count(void) {
   return i++;
 }
 
-static void push(void) {
-  println("  addi sp,sp,-8");
-  println("  sd a0,0(sp)");
+static void push(int reg) {
+  // lower the stack pointer by 4 bytes
+  println("\tsbi\tsp\tsp\t#4");
+  // store the value of r1 to the stack
+  // println("\tstw\tr1\tsp\t#0");
+  println("\tstw\t%s\tsp\t#0", R_ARG[reg]);
   depth++;
 }
 
 static void pop(int reg) {
-  println("  ld a%d,0(sp)", reg);
-  println("  addi sp,sp,8");
+  // println("  ld a%d,0(sp)", reg);
+  // println("  addi sp,sp,8");
+  // load the value of the reg from the stack
+  // println("\tldw\tr%d\tsp\t#0", reg);
+  println("\tldw\t%s\tsp\t#0", R_ARG[reg]);
   depth--;
 }
 
@@ -60,8 +71,10 @@ static void gen_addr(Node *node) {
   case ND_VAR:
     // Local variable
     if (node->var->is_local) {
-      println("  li t1,%d", node->var->offset - node->var->ty->size);
-      println("  add a0,s0,t1");
+      // println("  li r9,%d", node->var->offset - node->var->ty->size);
+      // println("  add r1,r8,r9");
+      println("\tset\tat\t%d", node->var->offset - node->var->ty->size);
+      println("\tadd\tr1\tr8\tat");
       return;
     }
 
@@ -69,14 +82,15 @@ static void gen_addr(Node *node) {
     if (node->ty->kind == TY_FUNC) {
       int c = count();
       println("_L_b1_%d:", c);
-      println("  auipc a0,%%pcrel_hi(%s)", node->var->name);
-      println("  addi a0,a0,%%pcrel_lo(_L_b1_%d)", c);
+      // println("  auipc r1,%%pcrel_hi(%s)", node->var->name);
+      // println("  addi r1,r1,%%pcrel_lo(_L_b1_%d)", c);
+      println("\tset\tat\t%s", node->var->name);
       return;
     }
 
     // Global variable
-    println("  lui a0,%%hi(%s)", node->var->name);
-    println("  addi a0,a0,%%lo(%s)", node->var->name);
+    println("  lui r1,%%hi(%s)", node->var->name);
+    println("  addi r1,r1,%%lo(%s)", node->var->name);
     return;
   case ND_DEREF:
     gen_expr(node->lhs);
@@ -87,7 +101,7 @@ static void gen_addr(Node *node) {
     return;
   case ND_MEMBER:
     gen_addr(node->lhs);
-    println("  addi a0,a0,%d", node->member->offset);
+    println("  addi r1,r1,%d", node->member->offset);
     return;
   default:
     break;
@@ -96,7 +110,7 @@ static void gen_addr(Node *node) {
   error_tok(node->tok, "not an lvalue");
 }
 
-// Load a value from where a0 is pointing to.
+// Load a value from where r1 is pointing to.
 static void load(Type *ty) {
   switch (ty->kind) {
   case TY_ARRAY:
@@ -111,10 +125,10 @@ static void load(Type *ty) {
     // the first element of the array in C" occurs.
     return;
   case TY_FLOAT:
-    println("  flw fa0,0(a0)");
+    println("  flw fa0,0(r1)");
     return;
   case TY_DOUBLE:
-    println("  fld fa0,0(a0)");
+    println("  fld fa0,0(r1)");
     return;
   default:
     break;
@@ -128,16 +142,16 @@ static void load(Type *ty) {
   // register for char, short and int may contain garbage. When we load
   // a long value to a register, it simply occupies the entire register.
   if (ty->size == 1)
-    println("  lb%s a0,0(a0)", suffix);
+    println("  lb%s r1,0(r1)", suffix);
   else if (ty->size == 2)
-    println("  lh%s a0,0(a0)", suffix);
+    println("  lh%s r1,0(r1)", suffix);
   else if (ty->size == 4)
-    println("  lw a0,0(a0)", suffix);
+    println("  lw r1,0(r1)", suffix);
   else
-    println("  ld a0,0(a0)");
+    println("  ld r1,0(r1)");
 }
 
-// Store a0 to an address that the stack top is pointing to.
+// Store r1 to an address that the stack top is pointing to.
 static void store(Type *ty) {
   pop(1);
 
@@ -145,45 +159,45 @@ static void store(Type *ty) {
   case TY_STRUCT:
   case TY_UNION:
     for (int i = 0; i < ty->size; i++) {
-      println("  lb a4,%d(a0)", i);
-      println("  sb a4,%d(a1)", i);
+      println("  lb a4,%d(r1)", i);
+      println("  sb a4,%d(r2)", i);
     }
     return;
   case TY_FLOAT:
-    println("  fsw fa0,0(a1)");
+    println("  fsw fa0,0(r2)");
     return;
   case TY_DOUBLE:
-    println("  fsd fa0,0(a1)");
+    println("  fsd fa0,0(r2)");
     return;
   default:
     break;
   }
 
   if (ty->size == 1)
-    println("  sb a0,0(a1)");
+    println("  sb r1,0(r2)");
   else if (ty->size == 2)
-    println("  sh a0,0(a1)");
+    println("  sh r1,0(r2)");
   else if (ty->size == 4)
-    println("  sw a0,0(a1)");
+    println("  sw r1,0(r2)");
   else
-    println("  sd a0,0(a1)");
+    println("  sd r1,0(r2)");
 }
 
 static void cmp_zero(Type *ty) {
   switch (ty->kind) {
   case TY_FLOAT:
     println("  fmv.w.x fa1,zero");
-    println("  feq.s a0,fa0,fa1");
+    println("  feq.s r1,fa0,fa1");
     return;
   case TY_DOUBLE:
     println("  fmv.d.x fa1,zero");
-    println("  feq.d a0,fa0,fa1");
+    println("  feq.d r1,fa0,fa1");
     return;
   default:
     break;
   }
 
-  println("  seqz a0,a0");
+  println("  seqz r1,r1");
 }
 
 enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
@@ -209,52 +223,52 @@ static int getTypeId(Type *ty) {
 }
 
 // The table for type casts
-static char i32i8[] = "  slliw a0,a0,24\n  sraiw a0,a0,24";
-static char i32u8[] = "  andi a0,a0,0xff";
-static char i32i16[] = "  slliw a0,a0,16\n  sraiw a0,a0,16";
-static char i32u16[] = "  slli a0,a0,48\n  srli a0,a0,48";
+static char i32i8[] = "  slliw r1,r1,24\n  sraiw r1,r1,24";
+static char i32u8[] = "  andi r1,r1,0xff";
+static char i32i16[] = "  slliw r1,r1,16\n  sraiw r1,r1,16";
+static char i32u16[] = "  slli r1,r1,48\n  srli r1,r1,48";
 
-static char u64i32[] = "  slli a0,a0,32\n  srli a0,a0,32";
+static char u64i32[] = "  slli r1,r1,32\n  srli r1,r1,32";
 
-static char i32f32[] = "  fcvt.s.w fa0,a0";
-static char i32f64[] = "  fcvt.d.w fa0,a0";
+static char i32f32[] = "  fcvt.s.w fa0,r1";
+static char i32f64[] = "  fcvt.d.w fa0,r1";
 
-static char u32f32[] = "  fcvt.s.wu fa0,a0";
-static char u32f64[] = "  fcvt.d.wu fa0,a0";
+static char u32f32[] = "  fcvt.s.wu fa0,r1";
+static char u32f64[] = "  fcvt.d.wu fa0,r1";
 
-static char i64f32[] = "  fcvt.s.l fa0,a0";
-static char i64f64[] = "  fcvt.d.l fa0,a0";
+static char i64f32[] = "  fcvt.s.l fa0,r1";
+static char i64f64[] = "  fcvt.d.l fa0,r1";
 
-static char u64f32[] = "  fcvt.s.lu fa0,a0";
-static char u64f64[] = "  fcvt.d.lu fa0,a0";
+static char u64f32[] = "  fcvt.s.lu fa0,r1";
+static char u64f64[] = "  fcvt.d.lu fa0,r1";
 
-static char f32i8[] = "  fcvt.w.s a0,fa0,rtz\n  andi a0,a0,0xff";
-static char f32u8[] = "  fcvt.wu.s a0,fa0,rtz\n  andi a0,a0,0xff";
-static char f32i16[] = "  fcvt.w.s a0,fa0,rtz\n"
-                       "  slliw a0,a0,16\n"
-                       "  sraiw a0,a0,16\n";
-static char f32u16[] = "  fcvt.wu.s a0,fa0,rtz\n"
-                       "  slli a0,a0,48\n"
-                       "  srli a0,a0,48\n";
-static char f32i32[] = "  fcvt.w.s a0,fa0,rtz";
-static char f32u32[] = "  fcvt.wu.s a0,fa0,rtz";
-static char f32i64[] = "  fcvt.l.s a0,fa0,rtz";
-static char f32u64[] = "  fcvt.lu.s a0,fa0,rtz";
+static char f32i8[] = "  fcvt.w.s r1,fa0,rtz\n  andi r1,r1,0xff";
+static char f32u8[] = "  fcvt.wu.s r1,fa0,rtz\n  andi r1,r1,0xff";
+static char f32i16[] = "  fcvt.w.s r1,fa0,rtz\n"
+                       "  slliw r1,r1,16\n"
+                       "  sraiw r1,r1,16\n";
+static char f32u16[] = "  fcvt.wu.s r1,fa0,rtz\n"
+                       "  slli r1,r1,48\n"
+                       "  srli r1,r1,48\n";
+static char f32i32[] = "  fcvt.w.s r1,fa0,rtz";
+static char f32u32[] = "  fcvt.wu.s r1,fa0,rtz";
+static char f32i64[] = "  fcvt.l.s r1,fa0,rtz";
+static char f32u64[] = "  fcvt.lu.s r1,fa0,rtz";
 static char f32f64[] = "  fcvt.d.s fa0,fa0";
 
-static char f64i8[] = "  fcvt.w.d a0,fa0,rtz\n  andi a0,a0,0xff";
-static char f64u8[] = "  fcvt.wu.d a0,fa0,rtz\n  andi a0,a0,0xff";
-static char f64i16[] = "  fcvt.w.d a0,fa0,rtz\n"
-                       "  slliw a0,a0,16\n"
-                       "  sraiw a0,a0,16\n";
-static char f64u16[] = "  fcvt.wu.d a0,fa0,rtz\n"
-                       "  slli a0,a0,48\n"
-                       "  srli a0,a0,48\n";
-static char f64i32[] = "  fcvt.w.d a0,fa0,rtz";
-static char f64u32[] = "  fcvt.wu.d a0,fa0,rtz";
+static char f64i8[] = "  fcvt.w.d r1,fa0,rtz\n  andi r1,r1,0xff";
+static char f64u8[] = "  fcvt.wu.d r1,fa0,rtz\n  andi r1,r1,0xff";
+static char f64i16[] = "  fcvt.w.d r1,fa0,rtz\n"
+                       "  slliw r1,r1,16\n"
+                       "  sraiw r1,r1,16\n";
+static char f64u16[] = "  fcvt.wu.d r1,fa0,rtz\n"
+                       "  slli r1,r1,48\n"
+                       "  srli r1,r1,48\n";
+static char f64i32[] = "  fcvt.w.d r1,fa0,rtz";
+static char f64u32[] = "  fcvt.wu.d r1,fa0,rtz";
 static char f64f32[] = "  fcvt.s.d fa0,fa0";
-static char f64i64[] = "  fcvt.l.d a0,fa0,rtz";
-static char f64u64[] = "  fcvt.lu.d a0,fa0,rtz";
+static char f64i64[] = "  fcvt.l.d r1,fa0,rtz";
+static char f64u64[] = "  fcvt.lu.d r1,fa0,rtz";
 
 static char *cast_table[][10] = {
     // i8   i16     i32     i64     u8     u16     u32     u64     f32     f64
@@ -283,7 +297,7 @@ static void cast(Type *from, Type *to) {
     return;
 
   if (to->kind == TY_BOOL) {
-    println("  snez a0,a0");
+    println("  snez r1,r1");
     return;
   }
 
@@ -321,7 +335,7 @@ static void push_struct(Type *ty) {
   depth += sz / 8;
 
   for (int i = 0; i < ty->size; i++) {
-    println("  lb t3,%d(a0)", i);
+    println("  lb t3,%d(r1)", i);
     println("  sb t3,%d(sp)", i);
   }
 }
@@ -347,7 +361,7 @@ static void push_args2(Node *args, bool first_pass) {
     pushf();
     break;
   default:
-    push();
+    push(0);
   }
 }
 
@@ -421,19 +435,19 @@ static void gen_expr(Node *node) {
     switch (node->ty->kind) {
     case TY_FLOAT:
       u.f32 = node->fval;
-      println("  li a0,%u  # float %f", u.u32, node->fval);
-      println("  fmv.w.x fa0,a0");
+      println("  li r1,%u  # float %f", u.u32, node->fval);
+      println("  fmv.w.x fa0,r1");
       return;
     case TY_DOUBLE:
       u.f64 = node->fval;
-      println("  li a0,%lu  # float %f", u.u64, node->fval);
-      println("  fmv.d.x fa0,a0");
+      println("  li r1,%lu  # float %f", u.u64, node->fval);
+      println("  fmv.d.x fa0,r1");
       return;
     default:
       break;
     }
 
-    println("  li a0,%ld", node->val);
+    println("  li r1,%ld", node->val);
     return;
   }
   case ND_NEG:
@@ -450,7 +464,7 @@ static void gen_expr(Node *node) {
       break;
     }
 
-    println("  neg a0,a0");
+    println("  neg r1,r1");
     return;
   case ND_VAR:
   case ND_MEMBER:
@@ -466,7 +480,7 @@ static void gen_expr(Node *node) {
     return;
   case ND_ASSIGN:
     gen_addr(node->lhs);
-    push();
+    push(0);
     gen_expr(node->rhs);
     store(node->ty);
     return;
@@ -486,9 +500,9 @@ static void gen_expr(Node *node) {
     int offset = node->var->offset;
     for (int i = 0; i < node->var->ty->size; i++) {
       offset -= sizeof(char);
-      println("  li t1,%d", offset);
-      println("  add t1,t1,s0");
-      println("  sb zero,0(t1)", offset);
+      println("  li r9,%d", offset);
+      println("  add r9,r9,%s", R_SAVED);
+      println("  sb zero,0(r9)", offset);
     }
     return;
   }
@@ -496,7 +510,7 @@ static void gen_expr(Node *node) {
     int c = count();
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
-    println("  bne a0,zero,_L_else_%d", c);
+    println("  bne r1,zero,_L_else_%d", c);
     gen_expr(node->then);
     println("  j _L_end_%d", c);
     println("_L_else_%d:", c);
@@ -510,20 +524,20 @@ static void gen_expr(Node *node) {
     return;
   case ND_BITNOT:
     gen_expr(node->lhs);
-    println("  not a0,a0");
+    println("  not r1,r1");
     return;
   case ND_LOGAND: {
     int c = count();
     gen_expr(node->lhs);
     cmp_zero(node->lhs->ty);
-    println("  bne a0,zero,_L_false_%d", c);
+    println("  bne r1,zero,_L_false_%d", c);
     gen_expr(node->rhs);
     cmp_zero(node->rhs->ty);
-    println("  bne a0,zero,_L_false_%d", c);
-    println("  li a0,1");
+    println("  bne r1,zero,_L_false_%d", c);
+    println("  li r1,1");
     println("  j _L_end_%d", c);
     println("_L_false_%d:", c);
-    println("  li a0,0");
+    println("  li r1,0");
     println("_L_end_%d:", c);
     return;
   }
@@ -531,21 +545,21 @@ static void gen_expr(Node *node) {
     int c = count();
     gen_expr(node->lhs);
     cmp_zero(node->lhs->ty);
-    println("  beqz a0,_L_true_%d", c);
+    println("  beqz r1,_L_true_%d", c);
     gen_expr(node->rhs);
     cmp_zero(node->rhs->ty);
-    println("  beqz a0,_L_true_%d", c);
-    println("  li a0,0");
+    println("  beqz r1,_L_true_%d", c);
+    println("  li r1,0");
     println("  j _L_end_%d", c);
     println("_L_true_%d:", c);
-    println("  li a0,1");
+    println("  li r1,1");
     println("_L_end_%d:", c);
     return;
   }
   case ND_FUNCALL: {
     int stack_args = push_args(node->args);
     gen_expr(node->lhs);
-    println("  mv t2,a0");
+    // println("  mv r10,r1");
 
     int fp = 0, gp = 0;
     Type *cur_param = node->func_ty->params;
@@ -595,34 +609,34 @@ static void gen_expr(Node *node) {
       }
     }
 
-    println("  jalr t2");
+    println("  jalr at");
 
     if (stack_args) {
       depth -= stack_args;
       println("  addi sp,sp,%d", stack_args * 8);
     }
 
-    // It looks like the most significant 48 or 56 bits in a0 may
+    // It looks like the most significant 48 or 56 bits in r1 may
     // contain garbage if a function return type is short or bool/char,
     // respectively. We clear the upper bits here.
     switch (node->ty->kind) {
     case TY_BOOL:
-      println("  andi a0,a0,0xff");
+      println("  andi r1,r1,0xff");
     case TY_CHAR:
       if (node->ty->is_unsigned) {
-        println("  andi a0,a0,0xff");
+        println("  andi r1,r1,0xff");
       } else {
-        println("  slliw a0,a0,24");
-        println("  sraiw a0,a0,24");
+        println("  slliw r1,r1,24");
+        println("  sraiw r1,r1,24");
       }
       return;
     case TY_SHORT:
       if (node->ty->is_unsigned) {
-        println("  slli a0,a0,48");
-        println("  srli a0,a0,48");
+        println("  slli r1,r1,48");
+        println("  srli r1,r1,48");
       } else {
-        println("  slliw a0,a0,16");
-        println("  sraiw a0,a0,16");
+        println("  slliw r1,r1,16");
+        println("  sraiw r1,r1,16");
       }
       return;
     default:
@@ -656,17 +670,17 @@ static void gen_expr(Node *node) {
       println("  fdiv.%s fa0,fa0,fa1", suffix);
       return;
     case ND_EQ:
-      println("  feq.%s a0,fa0,fa1", suffix);
+      println("  feq.%s r1,fa0,fa1", suffix);
       return;
     case ND_NE:
-      println("  feq.%s a0,fa0,fa1", suffix);
-      println("  seqz a0,a0");
+      println("  feq.%s r1,fa0,fa1", suffix);
+      println("  seqz r1,r1");
       return;
     case ND_LT:
-      println("  flt.%s a0,fa0,fa1", suffix);
+      println("  flt.%s r1,fa0,fa1", suffix);
       return;
     case ND_LE:
-      println("  fle.%s a0,fa0,fa1", suffix);
+      println("  fle.%s r1,fa0,fa1", suffix);
       return;
     default:
       break;
@@ -676,7 +690,7 @@ static void gen_expr(Node *node) {
   }
 
   gen_expr(node->rhs);
-  push();
+  push(0);
   gen_expr(node->lhs);
   pop(1);
 
@@ -684,68 +698,68 @@ static void gen_expr(Node *node) {
       node->lhs->ty->kind == TY_LONG || node->lhs->ty->base ? "" : "w";
   switch (node->kind) {
   case ND_ADD:
-    println("  add%s a0,a0,a1", suffix);
+    println("  add%s r1,r1,r2", suffix);
     return;
   case ND_SUB:
-    println("  sub%s a0,a0,a1", suffix);
+    println("  sub%s r1,r1,r2", suffix);
     return;
   case ND_MUL:
-    println("  mul%s a0,a0,a1", suffix);
+    println("  mul%s r1,r1,r2", suffix);
     return;
   case ND_DIV:
     if (node->ty->is_unsigned) {
-      println("  divu%s a0,a0,a1", suffix);
+      println("  divu%s r1,r1,r2", suffix);
     } else {
-      println("  div%s a0,a0,a1", suffix);
+      println("  div%s r1,r1,r2", suffix);
     }
     return;
   case ND_MOD:
     if (node->ty->is_unsigned) {
-      println("  remu%s a0,a0,a1", suffix);
+      println("  remu%s r1,r1,r2", suffix);
     } else {
-      println("  rem%s a0,a0,a1", suffix);
+      println("  rem%s r1,r1,r2", suffix);
     }
     return;
   case ND_BITAND:
-    println("  and a0,a0,a1");
+    println("  and r1,r1,r2");
     return;
   case ND_BITOR:
-    println("  or a0,a0,a1");
+    println("  or r1,r1,r2");
     return;
   case ND_BITXOR:
-    println("  xor a0,a0,a1");
+    println("  xor r1,r1,r2");
     return;
   case ND_EQ:
-    println("  sub a0,a0,a1");
-    println("  seqz a0,a0");
+    println("  sub r1,r1,r2");
+    println("  seqz r1,r1");
     return;
   case ND_NE:
-    println("  sub a0,a0,a1");
-    println("  snez a0,a0");
+    println("  sub r1,r1,r2");
+    println("  snez r1,r1");
     return;
   case ND_LT:
     if (node->lhs->ty->is_unsigned) {
-      println("  sltu a0,a0,a1");
+      println("  sltu r1,r1,r2");
     } else {
-      println("  slt a0,a0,a1");
+      println("  slt r1,r1,r2");
     }
     return;
   case ND_LE:
     if (node->lhs->ty->is_unsigned) {
-      println("  sgtu a0,a0,a1");
+      println("  sgtu r1,r1,r2");
     } else {
-      println("  sgt a0,a0,a1");
+      println("  sgt r1,r1,r2");
     }
-    println("  xori a0,a0,1");
+    println("  xori r1,r1,1");
     return;
   case ND_SHL:
-    println("  sll%s a0,a0,a1", suffix);
+    println("  sll%s r1,r1,r2", suffix);
     return;
   case ND_SHR:
     if (node->lhs->ty->is_unsigned) {
-      println("  srl%s a0,a0,a1", suffix);
+      println("  srl%s r1,r1,r2", suffix);
     } else {
-      println("  sra%s a0,a0,a1", suffix);
+      println("  sra%s r1,r1,r2", suffix);
     }
     return;
   default:
@@ -765,7 +779,7 @@ static void gen_stmt(Node *node) {
     int c = count();
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
-    println("  bne a0,zero,_L_else_%d", c);
+    println("  bne r1,zero,_L_else_%d", c);
     gen_stmt(node->then);
     println("  j _L_end_%d", c);
     println("_L_else_%d:", c);
@@ -782,7 +796,7 @@ static void gen_stmt(Node *node) {
     if (node->cond) {
       gen_expr(node->cond);
       cmp_zero(node->cond->ty);
-      println("  bne a0,zero,%s", node->brk_label);
+      println("  bne r1,zero,%s", node->brk_label);
     }
     gen_stmt(node->then);
     println("%s:", node->cont_label);
@@ -799,7 +813,7 @@ static void gen_stmt(Node *node) {
     println("%s:", node->cont_label);
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
-    println("  beqz a0,_L_begin_%d", c);
+    println("  beqz r1,_L_begin_%d", c);
     println("%s:", node->brk_label);
     return;
   }
@@ -808,7 +822,7 @@ static void gen_stmt(Node *node) {
 
     for (Node *n = node->case_next; n; n = n->case_next) {
       println("  li a4,%ld", n->val);
-      println("  beq a0,a4,%s", n->label);
+      println("  beq r1,a4,%s", n->label);
     }
 
     if (node->default_case)
@@ -942,34 +956,34 @@ static void emit_data(Obj *prog) {
 }
 
 static void store_fp(int r, int offset, int sz) {
-  println("  li t1,%d", offset - sz);
-  println("  add t1,t1,s0");
+  println("  li r9,%d", offset - sz);
+  println("  add r9,r9,r8");
   switch (sz) {
   case 4:
-    println("  fsw fa%d, 0(t1)", r, offset);
+    println("  fsw fa%d, 0(r9)", r, offset);
     return;
   case 8:
-    println("  fsd fa%d, 0(t1)", r, offset);
+    println("  fsd fa%d, 0(r9)", r, offset);
     return;
   }
   unreachable();
 }
 
 static void store_gp(int r, int offset, int sz) {
-  println("  li t1,%d", offset - sz);
-  println("  add t1,t1,s0");
+  println("  li r9,%d", offset - sz);
+  println("  add r9,r9,r8");
   switch (sz) {
   case 1:
-    println("  sb a%d,0(t1)", r);
+    println("  sb a%d,0(r9)", r);
     return;
   case 2:
-    println("  sh a%d,0(t1)", r);
+    println("  sh a%d,0(r9)", r);
     return;
   case 4:
-    println("  sw a%d,0(t1)", r);
+    println("  sw a%d,0(r9)", r);
     return;
   case 8:
-    println("  sd a%d,0(t1)", r);
+    println("  sd a%d,0(r9)", r);
     return;
   }
   printf("WTF %d\n", sz);
@@ -1001,11 +1015,21 @@ static void emit_text(Obj *prog) {
     current_fn = fn;
 
     // Prologue
-    println("  sd ra,-8(sp)");
-    println("  sd s0,-16(sp)");
-    println("  addi s0,sp,-16");
-    println("  li t1,-%d", fn->stack_size + 16);
-    println("  add sp,sp,t1");
+    // println("  sd ra,-8(sp)");
+    // println("  sd r8,-16(sp)");
+    // println("  addi r8,sp,-16");
+    // println("  li r9,-%d", fn->stack_size + 16);
+    // println("  add sp,sp,r9");
+
+    // lower stack pointer to save lr and fp
+    if (opt_emit_debug) {
+      println("\t; prologue");
+    }
+    println("\tsbi\tsp\t#8");
+    println("\tstw\tlr\tsp\t#4");
+    println("\tstw\t%s\tsp\t#0", R_SAVED);
+    // lower stack for function body
+    println("\tsbi\tsp\t#%d", fn->stack_size + 16);
 
     // Save passed-by-register arguments to the stack
     int fp = 0, gp = 0;
@@ -1038,11 +1062,22 @@ static void emit_text(Obj *prog) {
 
     // Epilogue
     println("_L_return_%s:", fn->name);
-    println("  li t1,%d", fn->stack_size + 16);
-    println("  add sp,sp,t1");
-    println("  ld ra,-8(sp)");
-    println("  ld s0,-16(sp)");
-    println("  ret");
+    // println("  li r9,%d", fn->stack_size + 16);
+    // println("  add sp,sp,r9");
+    // println("  ld ra,-8(sp)");
+    // println("  ld r8,-16(sp)");
+    // println("  ret");
+
+    if (opt_emit_debug) {
+      println("\t; epilogue");
+    }
+    // raise stack pointer for function body
+    println("\tadi\tsp\tsp\t#%d", fn->stack_size + 16);
+    // restore lr and fp
+    println("\tldw\t%s\tsp\t#0", R_SAVED);
+    println("\tldw\tlr\tsp\t#4");
+    // raise stack pointer after restore lr and fp
+    println("\tadi\tsp\tsp\t#8");
   }
 }
 
