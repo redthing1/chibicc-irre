@@ -182,17 +182,17 @@ static void store(Type *ty) {
   if (ty->size == 1) {
     // println("  sb r1,0(r2)");
     println("\tstb\tr1\tr2\t#0");
-    }
-  else if (ty->size == 2) {
+  } else if (ty->size == 2) {
     println("  sh r1,0(r2)");
-    }
-  else if (ty->size == 4) {
+  } else if (ty->size == 4) {
     // println("  sw r1,0(r2)");
     println("\tstw\tr1\tr2\t#0");
-    }
-  else {
-    println("  sd r1,0(r2)");
-    }
+  } else {
+    // println("  sd r1,0(r2)");
+    // to store a dword, we have to do two stw
+    // println("\t%%error\tstd\tr1\tr2\t#0");
+    println("\t%%error\tstd\tr1\tr2\t#0\t; %d", ty->kind);
+  }
 }
 
 static void cmp_zero(Type *ty) {
@@ -309,8 +309,9 @@ static char *cast_table[][10] = {
 };
 
 static void cast(Type *from, Type *to) {
-  if (to->kind == TY_VOID)
+  if (to->kind == TY_VOID) {
     return;
+  }
 
   if (to->kind == TY_BOOL) {
     println("  snez r1,r1");
@@ -319,22 +320,27 @@ static void cast(Type *from, Type *to) {
 
   int t1 = getTypeId(from);
   int t2 = getTypeId(to);
-  if (cast_table[t1][t2])
+  if (cast_table[t1][t2]) {
     println(cast_table[t1][t2]);
+  }
 }
 
 static bool has_flonum(Type *ty, int lo, int hi, int offset) {
   if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
-    for (Member *mem = ty->members; mem; mem = mem->next)
-      if (!has_flonum(mem->ty, lo, hi, offset + mem->offset))
+    for (Member *mem = ty->members; mem; mem = mem->next) {
+      if (!has_flonum(mem->ty, lo, hi, offset + mem->offset)) {
         return false;
+      }
+    }
     return true;
   }
 
   if (ty->kind == TY_ARRAY) {
-    for (int i = 0; i < ty->array_len; i++)
-      if (!has_flonum(ty->base, lo, hi, offset + ty->base->size * i))
+    for (int i = 0; i < ty->array_len; i++) {
+      if (!has_flonum(ty->base, lo, hi, offset + ty->base->size * i)) {
         return false;
+      }
+    }
     return true;
   }
 
@@ -357,14 +363,16 @@ static void push_struct(Type *ty) {
 }
 
 static void push_args2(Node *args, bool first_pass) {
-  if (!args)
+  if (!args) {
     return;
+  }
 
   push_args2(args->next, first_pass);
 
   if ((first_pass && !args->pass_by_stack) ||
-      (!first_pass && args->pass_by_stack))
+      (!first_pass && args->pass_by_stack)) {
     return;
+  }
 
   gen_expr(args);
   switch (args->ty->kind) {
@@ -502,8 +510,9 @@ static void gen_expr(Node *node) {
     store(node->ty);
     return;
   case ND_STMT_EXPR:
-    for (Node *n = node->body; n; n = n->next)
+    for (Node *n = node->body; n; n = n->next) {
       gen_stmt(n);
+    }
     return;
   case ND_COMMA:
     gen_expr(node->lhs);
@@ -603,8 +612,9 @@ static void gen_expr(Node *node) {
     Type *cur_param = node->func_ty->params;
     for (Node *arg = node->args; arg; arg = arg->next) {
       if (node->func_ty->is_variadic && cur_param == NULL) {
-        if (gp < GP_MAX)
+        if (gp < GP_MAX) {
           pop(gp++);
+        }
         continue;
       }
       cur_param = cur_param->next;
@@ -613,23 +623,26 @@ static void gen_expr(Node *node) {
       switch (ty->kind) {
       case TY_STRUCT:
       case TY_UNION:
-        if (ty->size > 16)
+        if (ty->size > 16) {
           continue;
+        }
 
         bool fp1 = has_flonum1(ty);
         bool fp2 = has_flonum2(ty);
 
         if (fp + fp1 + fp2 < FP_MAX && gp + !fp1 + !fp2 < GP_MAX) {
-          if (fp1)
+          if (fp1) {
             popf(fp++);
-          else
+          } else {
             pop(gp++);
+          }
 
           if (ty->size > 8) {
-            if (fp2)
+            if (fp2) {
               popf(fp++);
-            else
+            } else {
               pop(gp++);
+            }
           }
         }
         break;
@@ -642,8 +655,9 @@ static void gen_expr(Node *node) {
         }
         break;
       default:
-        if (gp < GP_MAX)
+        if (gp < GP_MAX) {
           pop(gp++);
+        }
       }
     }
 
@@ -728,13 +742,17 @@ static void gen_expr(Node *node) {
     error_tok(node->tok, "invalid expression");
   }
 
+  // put rhs into r1
   gen_expr(node->rhs);
+  // push r1 onto the stack
   push(0);
+  // put lhs into r1
   gen_expr(node->lhs);
+  // grab the rhs from the stack and put it into r2
   pop(1);
 
-  char *suffix =
-      node->lhs->ty->kind == TY_LONG || node->lhs->ty->base ? "" : "w";
+  // char *suffix =
+  //     node->lhs->ty->kind == TY_LONG || node->lhs->ty->base ? "" : "w";
   switch (node->kind) {
   case ND_ADD:
     // println("  add%s r1,r1,r2", suffix);
@@ -754,7 +772,7 @@ static void gen_expr(Node *node) {
     // } else {
     //   println("  div%s r1,r1,r2", suffix);
     // }
-    println("\t%%error\t; no div instruction");
+    println("\tdiv\tr1\tr1\tr2");
     return;
   case ND_MOD:
     // if (node->ty->is_unsigned) {
@@ -762,7 +780,7 @@ static void gen_expr(Node *node) {
     // } else {
     //   println("  rem%s r1,r1,r2", suffix);
     // }
-    println("\t%%error\t; no rem instruction");
+    println("\tmod\tr1\tr1\tr2");
     return;
   case ND_BITAND:
     // println("  and r1,r1,r2");
@@ -780,9 +798,9 @@ static void gen_expr(Node *node) {
     // we want to check if r1 == r2 with irre
     // we have available tcu, which will be -1, 0, or 1
     // if tcu outputs 0, set r1 to 1, otherwise set r1 to 0
-    println("\ttcu\tr1\tr1\tr2");  // r1 = -1,0,1
-    println("\tadi\tr1\tr1\t#1");  // r1 = 0,1,2 (0b00, 0b01, 0b10)
-    println("\tset\tat\t#1");      // at = 0b01
+    println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
+    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
+    println("\tset\tat\t#1");     // at = 0b01
     println("\tand\tr1\tr1\tat"); // if the least significant bit is 1, r1 = 1
     return;
   case ND_NE:
@@ -792,34 +810,46 @@ static void gen_expr(Node *node) {
     println("\txor\tr1\tr1\tat"); // if the least significant bit is 1, r1 = 0
     return;
   case ND_LT:
-    if (node->lhs->ty->is_unsigned) {
-      println("  sltu r1,r1,r2");
-    } else {
-      println("  slt r1,r1,r2");
-    }
+    // if (node->lhs->ty->is_unsigned) {
+    //   println("  sltu r1,r1,r2");
+    // } else {
+    //   println("  slt r1,r1,r2");
+    // }
+    println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
+    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
+    // set r1 to 1 if neither of the two bits are set
+    println("\tset\tat\t#1");
+    println("\tlsh\tr1\tr1\tat"); // vacate 0b00
+    println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
     return;
   case ND_LE:
-    if (node->lhs->ty->is_unsigned) {
-      println("  sgtu r1,r1,r2");
-    } else {
-      println("  sgt r1,r1,r2");
-    }
-    println("  xori r1,r1,1");
+    // if (node->lhs->ty->is_unsigned) {
+    //   println("  sgtu r1,r1,r2");
+    // } else {
+    //   println("  sgt r1,r1,r2");
+    // }
+    // println("  xori r1,r1,1");
+    println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
+    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
+    // set r1 to 1 if 0b00 (less) or 0b01 (equal)
+    println("\tset\tat\t#-1");
+    println("\tlsh\tr1\tr1\tat"); // shift right so we have either 0b1 or 0b0
+    println("\tset\tat\t#1");
+    println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
     return;
   case ND_SHL:
     // println("  sll%s r1,r1,r2", suffix);
     println("\tlsh\tr1\tr1\tr2");
     return;
   case ND_SHR:
+    // negate the shift amount r2 (to shift right)
+    println("\tset\tat\t#0");
+    println("\tsub\tr2\tat\tr2");
     if (node->lhs->ty->is_unsigned) {
       // println("  srl%s r1,r1,r2", suffix);
-      println("\tset\tat\t#0");
-      println("\tsub\tr2\tat\tr2"); // negate r2
       println("\tlsh\tr1\tr1\tr2");
     } else {
       // println("  sra%s r1,r1,r2", suffix);
-      println("\tset\tat\t#0");
-      println("\tsub\tr2\tat\tr2"); // negate r2
       println("\tash\tr1\tr1\tr2");
     }
     return;
@@ -840,30 +870,39 @@ static void gen_stmt(Node *node) {
     int c = count();
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
-    println("  bne r1,zero,_L_else_%d", c);
+    // println("  bne r1,zero,_L_else_%d", c);
+    println("\tset\tat\t::_L_else_%d", c);
+    println("\tbve\tat\tr1\t#1");
     gen_stmt(node->then);
-    println("  j _L_end_%d", c);
+    // println("  j _L_end_%d", c);
+    println("\tjmi\t::_L_end_%d", c);
     println("_L_else_%d:", c);
-    if (node->els)
+    if (node->els) {
       gen_stmt(node->els);
+    }
     println("_L_end_%d:", c);
     return;
   }
   case ND_FOR: {
     int c = count();
-    if (node->init)
+    if (node->init) {
       gen_stmt(node->init);
+    }
     println("_L_begin_%d:", c);
     if (node->cond) {
       gen_expr(node->cond);
       cmp_zero(node->cond->ty);
-      println("  bne r1,zero,%s", node->brk_label);
+      // println("  bne r1,zero,%s", node->brk_label);
+      println("\tset\tat\t::%s", node->brk_label);
+      println("\tbvn\tat\tr1\t#1");
     }
     gen_stmt(node->then);
     println("%s:", node->cont_label);
-    if (node->inc)
+    if (node->inc) {
       gen_expr(node->inc);
-    println("  j _L_begin_%d", c);
+    }
+    // println("  j _L_begin_%d", c);
+    println("\tjmi\t::_L_begin_%d", c);
     println("%s:", node->brk_label);
     return;
   }
@@ -874,7 +913,9 @@ static void gen_stmt(Node *node) {
     println("%s:", node->cont_label);
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
-    println("  beqz r1,_L_begin_%d", c);
+    // println("  beqz r1,_L_begin_%d", c);
+    println("\tset\tat\t::_L_begin_%d", c);
+    println("\tbve\tat\tr1\t#1");
     println("%s:", node->brk_label);
     return;
   }
@@ -882,14 +923,19 @@ static void gen_stmt(Node *node) {
     gen_expr(node->cond);
 
     for (Node *n = node->case_next; n; n = n->case_next) {
-      println("  li a4,%ld", n->val);
-      println("  beq r1,a4,%s", n->label);
+      // println("  li a4,%ld", n->val);
+      // println("  beq r1,a4,%s", n->label);
+      println("\tset\tat\t#%ld", n->val);
+      println("\tbve\tat\tr1\t#1");
     }
 
-    if (node->default_case)
-      println("  j %s", node->default_case->label);
+    if (node->default_case) {
+      // println("  j %s", node->default_case->label);
+      println("\tjmi\t::%s", node->default_case->label);
+    }
 
-    println("  j %s", node->brk_label);
+    // println("  j %s", node->brk_label);
+    println("\tjmi\t::%s", node->brk_label);
     gen_stmt(node->then);
     println("%s:", node->brk_label);
     return;
@@ -898,20 +944,24 @@ static void gen_stmt(Node *node) {
     gen_stmt(node->lhs);
     return;
   case ND_BLOCK:
-    for (Node *n = node->body; n; n = n->next)
+    for (Node *n = node->body; n; n = n->next) {
       gen_stmt(n);
+    }
     return;
   case ND_GOTO:
-    println("  j %s", node->unique_label);
+    // println("  j %s", node->unique_label);
+    println("\tjmi\t::%s", node->unique_label);
     return;
   case ND_LABEL:
     println("%s:", node->unique_label);
     gen_stmt(node->lhs);
     return;
   case ND_RETURN:
-    if (node->lhs)
+    if (node->lhs) {
       gen_expr(node->lhs);
-    println("  j _L_return_%s", current_fn->name);
+    }
+    // println("  j _L_return_%s", current_fn->name);
+    println("\tjmi\t::_L_return_%s", current_fn->name);
     return;
   case ND_EXPR_STMT:
     gen_expr(node->lhs);
@@ -929,8 +979,9 @@ static void gen_stmt(Node *node) {
 // Assign offsets to local variables.
 static void assign_lvar_offsets(Obj *prog) {
   for (Obj *fn = prog; fn; fn = fn->next) {
-    if (!fn->is_function)
+    if (!fn->is_function) {
       continue;
+    }
 
     int top = 16;
     int bottom = 0;
@@ -948,8 +999,9 @@ static void assign_lvar_offsets(Obj *prog) {
           continue;
         }
       } else {
-        if (gp++ < GP_MAX)
+        if (gp++ < GP_MAX) {
           continue;
+        }
       }
 
       top = align_to_irre(top, 8);
@@ -959,8 +1011,9 @@ static void assign_lvar_offsets(Obj *prog) {
 
     // Assign offsets to pass-by-register parameters and local variables.
     for (Obj *var = fn->locals; var; var = var->next) {
-      if (var->offset)
+      if (var->offset) {
         continue;
+      }
 
       bottom = align_to_irre(bottom, var->align);
       var->offset = -bottom;
@@ -975,18 +1028,20 @@ static void emit_data(Obj *prog) {
   println("%%section data");
 
   for (Obj *var = prog; var; var = var->next) {
-    if (var->is_function || !var->is_definition)
+    if (var->is_function || !var->is_definition) {
       continue;
+    }
 
     // if (var->is_static)
     //   println("  .local %s", var->name);
     // else
     //   println("  .globl %s", var->name);
     // irre doesn't support local
-    if (var->is_static)
+    if (var->is_static) {
       println("; .local %s", var->name);
-    else
+    } else {
       println("%%global %s", var->name);
+    }
 
     println("\t; .align %d", (int)log2(var->align));
 
@@ -1070,8 +1125,9 @@ static void emit_text(Obj *prog) {
   println("%%section text");
 
   for (Obj *fn = prog; fn; fn = fn->next) {
-    if (!fn->is_function || !fn->is_definition)
+    if (!fn->is_function || !fn->is_definition) {
       continue;
+    }
 
     // if (fn->is_static) {
     //   println("\t; %%local %s", fn->name);
@@ -1161,8 +1217,9 @@ void codegen_irre(Obj *prog, FILE *out) {
   output_file = out;
 
   File **files = get_input_files();
-  for (int i = 0; files[i]; i++)
+  for (int i = 0; files[i]; i++) {
     println("; .file %d \"%s\"", files[i]->file_no, files[i]->name);
+  }
 
   assign_lvar_offsets(prog);
   emit_text(prog);
