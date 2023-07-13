@@ -9,6 +9,7 @@ StringArray include_paths;
 bool opt_fcommon = true;
 bool opt_fpic;
 char *opt_march = "x86_64";
+bool *opt_emit_debug = false;
 
 static FileType opt_x;
 static StringArray opt_include;
@@ -164,6 +165,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-fno-common")) {
       opt_fcommon = false;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-femit-debug")) {
+      *opt_emit_debug = true;
       continue;
     }
 
