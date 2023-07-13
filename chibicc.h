@@ -1,3 +1,6 @@
+#ifndef _CHIBICC_H_
+#define _CHIBICC_H_
+
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <ctype.h>
@@ -449,3 +452,5 @@ extern bool opt_fpic;
 extern bool opt_fcommon;
 extern char *base_file;
 extern char *opt_march;
+
+#endif // _CHIBICC_H_
