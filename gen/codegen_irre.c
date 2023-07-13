@@ -894,11 +894,11 @@ static void assign_lvar_offsets(Obj *prog) {
 }
 
 static void emit_data(Obj *prog) {
+  println("%%section data");
+
   for (Obj *var = prog; var; var = var->next) {
     if (var->is_function || !var->is_definition)
       continue;
-
-    println("%%section data");
 
     // if (var->is_static)
     //   println("  .local %s", var->name);
