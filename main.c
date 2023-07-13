@@ -1,4 +1,5 @@
 #include "chibicc.h"
+#include "codegen.h"
 
 typedef enum {
   FILE_NONE, FILE_C, FILE_ASM, FILE_OBJ, FILE_AR, FILE_DSO,
@@ -7,6 +8,7 @@ typedef enum {
 StringArray include_paths;
 bool opt_fcommon = true;
 bool opt_fpic;
+char *opt_march = "x86_64";
 
 static FileType opt_x;
 static StringArray opt_include;
@@ -137,6 +139,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-o")) {
       opt_o = argv[++i];
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-march")) {
+      opt_march = argv[++i];
       continue;
     }
 

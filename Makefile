@@ -2,7 +2,12 @@ CFLAGS=-std=c11 -g -fno-common -Wall -Wno-switch
 LDFLAGS=-lm
 
 SRCS=$(wildcard *.c)
-OBJS=$(SRCS:.c=.o)
+# OBJS=$(SRCS:.c=.o)
+
+GEN_SRCS=$(wildcard gen/*.c)
+# GEN_OBJS=$(GEN_SRCS:.c=.o)
+
+OBJS=$(SRCS:.c=.o) $(GEN_SRCS:.c=.o)
 
 TEST_SRCS=$(wildcard test/*.c)
 TESTS=$(TEST_SRCS:.c=.exe)

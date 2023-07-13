@@ -405,13 +405,6 @@ Type *struct_type(void);
 void add_type(Node *node);
 
 //
-// codegen.c
-//
-
-void codegen(Obj *prog, FILE *out);
-int align_to(int n, int align);
-
-//
 // unicode.c
 //
 
@@ -455,3 +448,4 @@ extern StringArray include_paths;
 extern bool opt_fpic;
 extern bool opt_fcommon;
 extern char *base_file;
+extern char *opt_march;

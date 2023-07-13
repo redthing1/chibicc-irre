@@ -17,6 +17,7 @@
 // parser.
 
 #include "chibicc.h"
+#include "codegen.h"
 
 // Scope for local variables, global variables, typedefs
 // or enum constants
