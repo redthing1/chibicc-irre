@@ -841,6 +841,9 @@ static void gen_stmt(Node *node) {
   case ND_EXPR_STMT:
     gen_expr(node->lhs);
     return;
+  case ND_ASM:
+    println("  %s", node->asm_str);
+    return;
   default:
     break;
   }
