@@ -1,5 +1,5 @@
-#include "../chibicc.h"
 #include "../backend.h"
+#include "../chibicc.h"
 #include <math.h>
 
 int ptr_size_irre = 4;
@@ -76,8 +76,11 @@ static void gen_addr(Node *node) {
     if (node->var->is_local) {
       // println("  li r9,%d", node->var->offset - node->var->ty->size);
       // println("  add r1,r8,r9");
+      if (opt_emit_debug) {
+        println("\t; gen_addr (local) '%s'", node->var->name);
+      }
       println("\tset\tat\t#%d", -(node->var->offset - node->var->ty->size));
-      println("\tsub\tr1\tr8\tat");
+      println("\tsub\tr1\t%s\tat", R_SAVED);
       return;
     }
 
@@ -92,8 +95,9 @@ static void gen_addr(Node *node) {
     }
 
     // Global variable
-    println("  lui r1,%%hi(%s)", node->var->name);
-    println("  addi r1,r1,%%lo(%s)", node->var->name);
+    // println("  lui r1,%%hi(%s)", node->var->name);
+    // println("  addi r1,r1,%%lo(%s)", node->var->name);
+    println("\tset\tr1\t::%s", node->var->name);
     return;
   case ND_DEREF:
     gen_expr(node->lhs);
@@ -491,7 +495,9 @@ static void gen_expr(Node *node) {
       break;
     }
 
-    println("  neg r1,r1");
+    // println("  neg r1,r1");
+    println("\tset\tat\t#0");
+    println("\tsub\tr1\tat\tr1");
     return;
   case ND_VAR:
   case ND_MEMBER:
@@ -528,20 +534,13 @@ static void gen_expr(Node *node) {
     int offset = node->var->offset;
     for (int i = 0; i < node->var->ty->size; i++) {
       offset -= sizeof(char);
-      // println("  li r9,%d", offset);
-      // println("  add r9,r9,%s", R_SAVED);
-      // println("  sb zero,0(r9)", offset);
-      // println("\tset\tat\t#%d", offset);
-      // println("\tadd\tat\tat\t%s", R_SAVED);
-      if (offset >= 0) {
-        println("\tset\tat\t#%d", offset);
-        println("\tadd\tat\tat\t%s", R_SAVED);
-      } else {
-        println("\tset\tat\t#%d", -offset);
-        println("\tsub\tat\t%s\tat", R_SAVED);
-      }
+      // println("  li t1,%d", offset);
+      // println("  add t1,t1,s0");
+      // println("  sb zero,0(t1)", offset);
+      println("\tset\tat\t#%d", offset);
+      println("\tadd\tat\tat\t%s", R_SAVED);
       println("\tset\tad\t#0");
-      println("\tstw\tad\tat\t#0");
+      println("\tstb\tad\tat\t#0");
     }
     return;
   }
@@ -1125,6 +1124,9 @@ static void store_gp(int r, int offset, int sz) {
 
 static void emit_text(Obj *prog) {
   println("%%section text");
+  if (opt_default_main) {
+    println("%%entry :main");
+  }
 
   for (Obj *fn = prog; fn; fn = fn->next) {
     if (!fn->is_function || !fn->is_definition) {
@@ -1155,15 +1157,17 @@ static void emit_text(Obj *prog) {
     // println("  li r9,-%d", fn->stack_size + 16);
     // println("  add sp,sp,r9");
 
-    // lower stack pointer to save lr and fp
     if (opt_emit_debug) {
       println("\t; prologue");
     }
-    println("\tsbi\tsp\t#8");
-    println("\tstw\tlr\tsp\t#4");
-    println("\tstw\t%s\tsp\t#0", R_SAVED);
-    // lower stack for function body
-    println("\tsbi\tsp\t#%d", fn->stack_size + 16);
+    // save return address and base pointer
+    println("\tstw\tlr\tsp\t#-4");
+    println("\tstw\t%s\tsp\t#-8", R_SAVED);
+    // move base pointer
+    println("\tadi\t%s\tsp\t#-8", R_SAVED);
+    // lower stack pointer for function body
+    println("\tset\tat\t#-%d", fn->stack_size + 16);
+    println("\tadd\tsp\tsp\tat");
 
     // Save passed-by-register arguments to the stack
     int fp = 0, gp = 0;
@@ -1205,13 +1209,11 @@ static void emit_text(Obj *prog) {
     if (opt_emit_debug) {
       println("\t; epilogue");
     }
-    // raise stack pointer for function body
-    println("\tadi\tsp\tsp\t#%d", fn->stack_size + 16);
-    // restore lr and fp
-    println("\tldw\t%s\tsp\t#0", R_SAVED);
-    println("\tldw\tlr\tsp\t#4");
-    // raise stack pointer after restore lr and fp
-    println("\tadi\tsp\tsp\t#8");
+    println("\tset\tat\t#%d", fn->stack_size + 16);
+    println("\tadd\tsp\tsp\tat");
+    println("\tldw\tlr\tsp\t#-4");
+    println("\tldw\t%s\tsp\t#-8", R_SAVED);
+    println("\tret");
   }
 }
 
