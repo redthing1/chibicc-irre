@@ -10,6 +10,7 @@ bool opt_fcommon = true;
 bool opt_fpic;
 char *opt_march = "x86_64";
 bool opt_emit_debug = false;
+bool opt_default_main = false;
 
 static FileType opt_x;
 static StringArray opt_include;
@@ -170,6 +171,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-femit-debug")) {
       opt_emit_debug = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-fdefault-main")) {
+      opt_default_main = true;
       continue;
     }
 
