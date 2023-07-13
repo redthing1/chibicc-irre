@@ -3,6 +3,8 @@
 
 #define BACKEND_X86_64
 #define BACKEND_RISCV64
+// #define BACKEND_AARCH64
+#define BACKEND_IRRE
 
 #ifdef BACKEND_X86_64
 void codegen_x86_64(Obj *prog, FILE *out);
@@ -15,6 +17,10 @@ int align_to_aarch64(int n, int align);
 #ifdef BACKEND_RISCV64
 void codegen_riscv64(Obj *prog, FILE *out);
 int align_to_riscv64(int n, int align);
+#endif
+#ifdef BACKEND_IRRE
+void codegen_irre(Obj *prog, FILE *out);
+int align_to_irre(int n, int align);
 #endif
 
 /** codegen wrapper that selects backend by arch */
@@ -34,6 +40,10 @@ void codegen(Obj *prog, FILE *out) {
 #ifdef BACKEND_RISCV64
   else if (strcmp(opt_march, "riscv64") == 0)
     codegen_riscv64(prog, out);
+#endif
+#ifdef BACKEND_IRRE
+  else if (strcmp(opt_march, "irre") == 0)
+    codegen_irre(prog, out);
 #endif
   else
     error("codegen: unknown arch: %s", opt_march);
@@ -56,6 +66,10 @@ int align_to(int n, int align) {
 #ifdef BACKEND_RISCV64
   else if (strcmp(opt_march, "riscv64") == 0)
     return align_to_riscv64(n, align);
+#endif
+#ifdef BACKEND_IRRE
+  else if (strcmp(opt_march, "irre") == 0)
+    return align_to_irre(n, align);
 #endif
   else
     error("align_to: unknown arch: %s", opt_march);
