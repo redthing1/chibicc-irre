@@ -924,15 +924,17 @@ static void emit_data(Obj *prog) {
           rel = rel->next;
           pos += 8;
         } else {
-          println("  .byte %d", var->init_data[pos++]);
+          // println("  .byte %d", var->init_data[pos++]);
+          println("\t%%d\t\\x\t$%02x", var->init_data[pos++]);
         }
       }
       continue;
     }
 
-    println("  .bss");
+    println("%%section bss");
     println("%s:", var->name);
-    println("  .zero %d", var->ty->size);
+    // println("  .zero %d", var->ty->size);
+    println("\t%%d\t\\z\t#%d", var->ty->size);
   }
 }
 
