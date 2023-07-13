@@ -537,8 +537,12 @@ static void gen_expr(Node *node) {
       // println("  li t1,%d", offset);
       // println("  add t1,t1,s0");
       // println("  sb zero,0(t1)", offset);
-      println("\tset\tat\t#%d", offset);
-      println("\tadd\tat\tat\t%s", R_SAVED);
+      if (opt_emit_debug) {
+        println("\t; gen_expr (memzero) '%s'", node->var->name);
+      }
+      int positive_offset = -offset;
+      println("\tset\tat\t#%d", positive_offset);
+      println("\tsub\tat\t%s\tat", R_SAVED); // at = bp - offset
       println("\tset\tad\t#0");
       println("\tstb\tad\tat\t#0");
     }
@@ -1088,13 +1092,15 @@ static void store_fp(int r, int offset, int sz) {
 
 static void store_gp(int r, int offset, int sz) {
   if (opt_emit_debug) {
-    println("\t; store_gp(%d, %d, %d)", r, offset, sz);
+    println("\t; store_gp(r=%d, offset=%d, sz=%d)", r, offset, sz);
   }
   // println("  li r9,%d", offset - sz);
   // println("  add r9,r9,r8");
   const char *r_name = R_ARG[r];
-  println("\tset\tat\t#%d", offset - sz);
-  println("\tadd\tat\tat\t%s", R_SAVED);
+  // println("\tset\tat\t#%d", offset - sz);
+  int positive_offset = -(offset - sz);
+  println("\tset\tat\t#%d", positive_offset);
+  println("\tsub\tat\t%s\tat", R_SAVED);
   switch (sz) {
   case 1:
     // println("  sb a%d,0(r9)", r);
@@ -1115,7 +1121,7 @@ static void store_gp(int r, int offset, int sz) {
     return;
   case 8:
     // println("  sd a%d,0(r9)", r);
-    println("<unsupported> store_gp(%d, %d, %d)", r, offset, sz);
+    println("\t; (unsupported) store_gp(%d, %d, %d)", r, offset, sz);
     return;
   }
   printf("WTF %d\n", sz);
@@ -1164,10 +1170,10 @@ static void emit_text(Obj *prog) {
     println("\tstw\tlr\tsp\t#-4");
     println("\tstw\t%s\tsp\t#-8", R_SAVED);
     // move base pointer
-    println("\tadi\t%s\tsp\t#-8", R_SAVED);
+    println("\tsbi\t%s\tsp\t#8", R_SAVED);
     // lower stack pointer for function body
-    println("\tset\tat\t#-%d", fn->stack_size + 16);
-    println("\tadd\tsp\tsp\tat");
+    println("\tset\tat\t#%d", fn->stack_size + 16);
+    println("\tsub\tsp\tsp\tat");
 
     // Save passed-by-register arguments to the stack
     int fp = 0, gp = 0;
