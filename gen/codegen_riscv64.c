@@ -4,6 +4,8 @@
 #define GP_MAX 8
 #define FP_MAX 8
 
+int ptr_size_riscv64 = 8;
+
 static FILE *output_file;
 static int depth;
 static Obj *current_fn;

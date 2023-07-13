@@ -17,7 +17,7 @@
 // parser.
 
 #include "chibicc.h"
-#include "codegen.h"
+#include "backend.h"
 
 // Scope for local variables, global variables, typedefs
 // or enum constants
@@ -158,7 +158,7 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr);
 static Token *global_variable(Token *tok, Type *basety, VarAttr *attr);
 
 static int align_down(int n, int align) {
-  return align_to(n - align + 1, align);
+  return backend_align_to(n - align + 1, align);
 }
 
 static void enter_scope(void) {
@@ -2691,18 +2691,18 @@ static Type *struct_decl(Token **rest, Token *tok) {
     if (mem->is_bitfield && mem->bit_width == 0) {
       // Zero-width anonymous bitfield has a special meaning.
       // It affects only alignment.
-      bits = align_to(bits, mem->ty->size * 8);
+      bits = backend_align_to(bits, mem->ty->size * 8);
     } else if (mem->is_bitfield) {
       int sz = mem->ty->size;
       if (bits / (sz * 8) != (bits + mem->bit_width - 1) / (sz * 8))
-        bits = align_to(bits, sz * 8);
+        bits = backend_align_to(bits, sz * 8);
 
       mem->offset = align_down(bits / 8, sz);
       mem->bit_offset = bits % (sz * 8);
       bits += mem->bit_width;
     } else {
       if (!ty->is_packed)
-        bits = align_to(bits, mem->align * 8);
+        bits = backend_align_to(bits, mem->align * 8);
       mem->offset = bits / 8;
       bits += mem->ty->size * 8;
     }
@@ -2711,7 +2711,7 @@ static Type *struct_decl(Token **rest, Token *tok) {
       ty->align = mem->align;
   }
 
-  ty->size = align_to(bits, ty->align * 8) / 8;
+  ty->size = backend_align_to(bits, ty->align * 8) / 8;
   return ty;
 }
 
@@ -2732,7 +2732,7 @@ static Type *union_decl(Token **rest, Token *tok) {
     if (ty->size < mem->ty->size)
       ty->size = mem->ty->size;
   }
-  ty->size = align_to(ty->size, ty->align);
+  ty->size = backend_align_to(ty->size, ty->align);
   return ty;
 }
 

@@ -1,5 +1,5 @@
 #include "chibicc.h"
-#include "codegen.h"
+#include "backend.h"
 
 typedef enum {
   FILE_NONE, FILE_C, FILE_ASM, FILE_OBJ, FILE_AR, FILE_DSO,
@@ -571,7 +571,7 @@ static void cc1(void) {
   FILE *output_buf = open_memstream(&buf, &buflen);
 
   // Traverse the AST to emit assembly.
-  codegen(prog, output_buf);
+  backend_codegen(prog, output_buf);
   fclose(output_buf);
 
   // Write the asembly text to a file.

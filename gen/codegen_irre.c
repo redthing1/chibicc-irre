@@ -1,6 +1,8 @@
 #include "../chibicc.h"
-#include "../codegen.h"
+#include "../backend.h"
 #include <math.h>
+
+int ptr_size_irre = 4;
 
 #define GP_MAX 8
 #define FP_MAX 8

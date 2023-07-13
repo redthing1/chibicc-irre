@@ -4,6 +4,8 @@
 #define GP_MAX 6
 #define FP_MAX 8
 
+int ptr_size_x86_64 = 8;
+
 static FILE *output_file;
 static int depth;
 static char *argreg8[] = {"%dil", "%sil", "%dl", "%cl", "%r8b", "%r9b"};

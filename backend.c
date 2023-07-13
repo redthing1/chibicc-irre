@@ -1,5 +1,5 @@
 #include "chibicc.h"
-#include "codegen.h"
+#include "backend.h"
 
 #define BACKEND_X86_64
 #define BACKEND_RISCV64
@@ -9,22 +9,26 @@
 #ifdef BACKEND_X86_64
 void codegen_x86_64(Obj *prog, FILE *out);
 int align_to_x86_64(int n, int align);
+extern int ptr_size_x86_64;
 #endif
 #ifdef BACKEND_AARCH64
 void codegen_aarch64(Obj *prog, FILE *out);
 int align_to_aarch64(int n, int align);
+extern int ptr_size_aarch64;
 #endif
 #ifdef BACKEND_RISCV64
 void codegen_riscv64(Obj *prog, FILE *out);
 int align_to_riscv64(int n, int align);
+extern int ptr_size_riscv64;
 #endif
 #ifdef BACKEND_IRRE
 void codegen_irre(Obj *prog, FILE *out);
 int align_to_irre(int n, int align);
+extern int ptr_size_irre;
 #endif
 
-/** codegen wrapper that selects backend by arch */
-void codegen(Obj *prog, FILE *out) {
+/** backend_codegen wrapper that selects backend by arch */
+void backend_codegen(Obj *prog, FILE *out) {
   if (!opt_march || strcmp(opt_march, "help") == 0) {
     printf("Specify -march <arch> to select a target architecture.\n");
     exit(2);
@@ -46,11 +50,11 @@ void codegen(Obj *prog, FILE *out) {
     codegen_irre(prog, out);
 #endif
   else
-    error("codegen: unknown arch: %s", opt_march);
+    error("backend_codegen: unknown arch: %s", opt_march);
 }
 
-/** align_to wrapper that selects backend by arch */
-int align_to(int n, int align) {
+/** backend_align_to wrapper that selects backend by arch */
+int backend_align_to(int n, int align) {
   if (!opt_march || strcmp(opt_march, "help") == 0) {
     printf("Specify -march <arch> to select a target architecture.\n");
     exit(2);
@@ -72,5 +76,31 @@ int align_to(int n, int align) {
     return align_to_irre(n, align);
 #endif
   else
-    error("align_to: unknown arch: %s", opt_march);
+    error("backend_align_to: unknown arch: %s", opt_march);
+}
+
+/** get the pointer size for the current arch */
+int backend_ptr_size(void) {
+  if (!opt_march || strcmp(opt_march, "help") == 0) {
+    printf("Specify -march <arch> to select a target architecture.\n");
+    exit(2);
+  }
+#ifdef BACKEND_X86_64
+  else if (strcmp(opt_march, "x86_64") == 0)
+    return ptr_size_x86_64;
+#endif
+#ifdef BACKEND_AARCH64
+  else if (strcmp(opt_march, "aarch64") == 0)
+    return ptr_size_aarch64;
+#endif
+#ifdef BACKEND_RISCV64
+  else if (strcmp(opt_march, "riscv64") == 0)
+    return ptr_size_riscv64;
+#endif
+#ifdef BACKEND_IRRE
+  else if (strcmp(opt_march, "irre") == 0)
+    return ptr_size_irre;
+#endif
+  else
+    error("backend_ptr_size: unknown arch: %s", opt_march);
 }
