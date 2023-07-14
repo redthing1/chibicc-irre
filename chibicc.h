@@ -302,22 +302,22 @@ Obj *parse(Token *tok);
 //
 
 typedef enum {
-  TY_VOID,
-  TY_BOOL,
-  TY_CHAR,
-  TY_SHORT,
-  TY_INT,
-  TY_LONG,
-  TY_FLOAT,
-  TY_DOUBLE,
-  TY_LDOUBLE,
-  TY_ENUM,
-  TY_PTR,
-  TY_FUNC,
-  TY_ARRAY,
-  TY_VLA, // variable-length array
-  TY_STRUCT,
-  TY_UNION,
+  TY_VOID, // 0
+  TY_BOOL, // 1
+  TY_CHAR, // 2
+  TY_SHORT, // 3
+  TY_INT, // 4
+  TY_LONG, // 5
+  TY_FLOAT, // 6
+  TY_DOUBLE, // 7
+  TY_LDOUBLE, // 8
+  TY_ENUM, // 9
+  TY_PTR, // 10
+  TY_FUNC, // 11
+  TY_ARRAY, // 12
+  TY_VLA, // variable-length array // 13
+  TY_STRUCT, // 14
+  TY_UNION, // 15
 } TypeKind;
 
 struct Type {
