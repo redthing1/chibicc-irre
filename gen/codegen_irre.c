@@ -226,11 +226,11 @@ static void cmp_zero(Type *ty) {
     break;
   }
 
-  // println("  seqz r1,r1");
-  println("\ttcu\tr1\tr1\tr1");
-  println("\tadi\tr1\tr1\t#1");
-  println("\tset\tat\t#1");
-  println("\tand\tr1\tr1\tat");
+  // println("  seqz r1,r1"); // set r1=1 if r1==0, otherwise r1=0
+  if (opt_emit_debug) {
+    println("\t; cmp_zero");
+  }
+  println("\tseq\tr1\tr1\t#0");
 }
 
 enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
@@ -918,11 +918,7 @@ static void gen_expr(Node *node) {
     //   println("  slt r1,r1,r2");
     // }
     println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
-    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
-    // set r1 to 1 if neither of the two bits are set
-    println("\tset\tat\t#1");
-    println("\tlsh\tr1\tr1\tat"); // vacate 0b00
-    println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
+    println("\tseq\tr1\tr1\t#-1"); // set r1=1 if r1==-1
     return;
   case ND_LE:
     if (opt_emit_debug) {
@@ -935,12 +931,9 @@ static void gen_expr(Node *node) {
     // }
     // println("  xori r1,r1,1");
     println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
-    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
-    // set r1 to 1 if 0b00 (less) or 0b01 (equal)
-    println("\tset\tat\t#-1");
-    println("\tlsh\tr1\tr1\tat"); // shift right so we have either 0b1 or 0b0
-    println("\tset\tat\t#1");
-    println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
+    println("\tseq\tr1\tr1\t#1");  // set r1=1 if r1==1
+    println("\tset\tat\t#1");      // at = 0b01
+    println("\txor\tr1\tr1\tat");  // flip the bit
     return;
   case ND_SHL:
     if (opt_emit_debug) {
@@ -983,7 +976,7 @@ static void gen_stmt(Node *node) {
     cmp_zero(node->cond->ty);
     // println("  bne r1,zero,_L_else_%d", c);
     println("\tset\tat\t::_L_else_%d", c);
-    println("\tbve\tat\tr1\t#1");
+    println("\tbvn\tat\tr1\t#1");
     gen_stmt(node->then);
     // println("  j _L_end_%d", c);
     println("\tjmi\t::_L_end_%d", c);
