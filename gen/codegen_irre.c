@@ -603,7 +603,7 @@ static void gen_expr(Node *node) {
     cmp_zero(node->cond->ty);
     // println("  bne r1,zero,_L_else_%d", c);
     println("\tset\tat\t::_L_else_%d", c);
-    println("\tbvn\tat\tr1\t#1");
+    println("\tbvn\tat\tr1\t#0");
     gen_expr(node->then);
     println("  j _L_end_%d", c);
     println("_L_else_%d:", c);
@@ -634,12 +634,12 @@ static void gen_expr(Node *node) {
     cmp_zero(node->lhs->ty);
     // println("  bne r1,zero,_L_false_%d", c);
     println("\tset\tat\t::_L_false_%d", c);
-    println("\tbvn\tat\tr1\t#1");
+    println("\tbvn\tat\tr1\t#0");
     gen_expr(node->rhs);
     cmp_zero(node->rhs->ty);
     // println("  bne r1,zero,_L_false_%d", c);
     println("\tset\tat\t::_L_false_%d", c);
-    println("\tbvn\tat\tr1\t#1");
+    println("\tbvn\tat\tr1\t#0");
     println("  li r1,1");
     println("  j _L_end_%d", c);
     println("_L_false_%d:", c);
@@ -918,7 +918,8 @@ static void gen_expr(Node *node) {
     //   println("  slt r1,r1,r2");
     // }
     println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
-    println("\tseq\tr1\tr1\t#-1"); // set r1=1 if r1==-1
+    println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
+    println("\tseq\tr1\tr1\t#0"); // set r1=1 if r1==0 (less than)
     return;
   case ND_LE:
     if (opt_emit_debug) {
@@ -976,7 +977,7 @@ static void gen_stmt(Node *node) {
     cmp_zero(node->cond->ty);
     // println("  bne r1,zero,_L_else_%d", c);
     println("\tset\tat\t::_L_else_%d", c);
-    println("\tbvn\tat\tr1\t#1");
+    println("\tbvn\tat\tr1\t#0");
     gen_stmt(node->then);
     // println("  j _L_end_%d", c);
     println("\tjmi\t::_L_end_%d", c);
@@ -998,7 +999,7 @@ static void gen_stmt(Node *node) {
       cmp_zero(node->cond->ty);
       // println("  bne r1,zero,%s", node->brk_label);
       println("\tset\tat\t::%s", node->brk_label);
-      println("\tbvn\tat\tr1\t#1");
+      println("\tbvn\tat\tr1\t#0");
     }
     gen_stmt(node->then);
     println("%s:", node->cont_label);
