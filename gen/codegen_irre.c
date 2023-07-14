@@ -1269,10 +1269,10 @@ static void emit_text(Obj *prog) {
     // save return address and base pointer
     println("\tstw\tlr\tsp\t#-4");
     println("\tstw\t%s\tsp\t#-8", R_BP);
-    // move base pointer
+    // lower base pointer
     println("\tsbi\t%s\tsp\t#8", R_BP);
     // lower stack pointer for function body
-    println("\tset\tat\t#%d", fn->stack_size + 16);
+    println("\tset\tat\t#%d", fn->stack_size + 8);
     println("\tsub\tsp\tsp\tat");
 
     // Save passed-by-register arguments to the stack
@@ -1315,9 +1315,8 @@ static void emit_text(Obj *prog) {
     if (opt_emit_debug) {
       println("\t; epilogue");
     }
-    println("\tset\tat\t#%d", fn->stack_size + 16);
+    println("\tset\tat\t#%d", fn->stack_size + 8);
     println("\tadd\tsp\tsp\tat");
-    println("\tadi\tsp\tsp\t#8");
     println("\tldw\tlr\tsp\t#-4");
     println("\tldw\t%s\tsp\t#-8", R_BP);
     println("\tret");
