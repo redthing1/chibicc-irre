@@ -463,6 +463,9 @@ static void gen_expr(Node *node) {
 
   switch (node->kind) {
   case ND_NULL_EXPR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (null)");
+    }
     return;
   case ND_NUM: {
     union {
@@ -495,6 +498,9 @@ static void gen_expr(Node *node) {
     return;
   }
   case ND_NEG:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (neg)");
+    }
     gen_expr(node->lhs);
 
     switch (node->ty->kind) {
@@ -514,36 +520,61 @@ static void gen_expr(Node *node) {
     return;
   case ND_VAR:
   case ND_MEMBER:
+    if (opt_emit_debug) {
+      // println("\t; gen_expr (var/member) '%s'", node->var->name);
+      println("\t; gen_expr (var/member)");
+    }
     gen_addr(node);
     load(node->ty);
     return;
   case ND_DEREF:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (deref)");
+    }
     gen_expr(node->lhs);
     load(node->ty);
     return;
   case ND_ADDR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (addr)");
+    }
     gen_addr(node->lhs);
     return;
   case ND_ASSIGN:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (assign)");
+    }
     gen_addr(node->lhs);
     push(0);
     gen_expr(node->rhs);
     store(node->ty);
     return;
   case ND_STMT_EXPR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (stmt_expr)");
+    }
     for (Node *n = node->body; n; n = n->next) {
       gen_stmt(n);
     }
     return;
   case ND_COMMA:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (comma)");
+    }
     gen_expr(node->lhs);
     gen_expr(node->rhs);
     return;
   case ND_CAST:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (cast)");
+    }
     gen_expr(node->lhs);
     cast(node->lhs->ty, node->ty);
     return;
   case ND_MEMZERO: {
+    if (opt_emit_debug) {
+      println("\t; gen_expr (memzero)");
+    }
     int offset = node->var->offset;
     for (int i = 0; i < node->var->ty->size; i++) {
       offset -= sizeof(char);
@@ -563,6 +594,9 @@ static void gen_expr(Node *node) {
     return;
   }
   case ND_COND: {
+    if (opt_emit_debug) {
+      println("\t; gen_expr (cond)");
+    }
     int c = count();
     gen_expr(node->cond);
     cmp_zero(node->cond->ty);
@@ -577,14 +611,23 @@ static void gen_expr(Node *node) {
     return;
   }
   case ND_NOT:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (not)");
+    }
     gen_expr(node->lhs);
     cmp_zero(node->lhs->ty);
     return;
   case ND_BITNOT:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (bitnot)");
+    }
     gen_expr(node->lhs);
     println("  not r1,r1");
     return;
   case ND_LOGAND: {
+    if (opt_emit_debug) {
+      println("\t; gen_expr (logand)");
+    }
     int c = count();
     gen_expr(node->lhs);
     cmp_zero(node->lhs->ty);
@@ -604,6 +647,9 @@ static void gen_expr(Node *node) {
     return;
   }
   case ND_LOGOR: {
+    if (opt_emit_debug) {
+      println("\t; gen_expr (logor)");
+    }
     int c = count();
     gen_expr(node->lhs);
     cmp_zero(node->lhs->ty);
@@ -623,6 +669,9 @@ static void gen_expr(Node *node) {
     return;
   }
   case ND_FUNCALL: {
+    if (opt_emit_debug) {
+      println("\t; gen_expr (funcall)");
+    }
     int stack_args = push_args(node->args);
     gen_expr(node->lhs);
     // println("  mv r10,r1");
@@ -774,18 +823,30 @@ static void gen_expr(Node *node) {
   //     node->lhs->ty->kind == TY_LONG || node->lhs->ty->base ? "" : "w";
   switch (node->kind) {
   case ND_ADD:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (add)");
+    }
     // println("  add%s r1,r1,r2", suffix);
     println("\tadd\tr1\tr1\tr2");
     return;
   case ND_SUB:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (sub)");
+    }
     // println("  sub%s r1,r1,r2", suffix);
     println("\tsub\tr1\tr1\tr2");
     return;
   case ND_MUL:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (mul)");
+    }
     // println("  mul%s r1,r1,r2", suffix);
     println("\tmul\tr1\tr1\tr2");
     return;
   case ND_DIV:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (div)");
+    }
     // if (node->ty->is_unsigned) {
     //   println("  divu%s r1,r1,r2", suffix);
     // } else {
@@ -794,6 +855,9 @@ static void gen_expr(Node *node) {
     println("\tdiv\tr1\tr1\tr2");
     return;
   case ND_MOD:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (mod)");
+    }
     // if (node->ty->is_unsigned) {
     //   println("  remu%s r1,r1,r2", suffix);
     // } else {
@@ -802,18 +866,30 @@ static void gen_expr(Node *node) {
     println("\tmod\tr1\tr1\tr2");
     return;
   case ND_BITAND:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (bitand)");
+    }
     // println("  and r1,r1,r2");
     println("\tand\tr1\tr1\tr2");
     return;
   case ND_BITOR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (bitor)");
+    }
     // println("  or r1,r1,r2");
     println("\torr\t\tr1\tr1\tr2");
     return;
   case ND_BITXOR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (bitxor)");
+    }
     // println("  xor r1,r1,r2");
     println("\txor\tr1\tr1\tr2");
     return;
   case ND_EQ:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (eq)");
+    }
     // we want to check if r1 == r2 with irre
     // we have available tcu, which will be -1, 0, or 1
     // if tcu outputs 0, set r1 to 1, otherwise set r1 to 0
@@ -823,12 +899,18 @@ static void gen_expr(Node *node) {
     println("\tand\tr1\tr1\tat"); // if the least significant bit is 1, r1 = 1
     return;
   case ND_NE:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (ne)");
+    }
     println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
     println("\tadi\tr1\tr1\t#1"); // r1 = 0,1,2 (0b00, 0b01, 0b10)
     println("\tset\tat\t#1");     // at = 0b01
     println("\txor\tr1\tr1\tat"); // if the least significant bit is 1, r1 = 0
     return;
   case ND_LT:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (lt)");
+    }
     // if (node->lhs->ty->is_unsigned) {
     //   println("  sltu r1,r1,r2");
     // } else {
@@ -842,6 +924,9 @@ static void gen_expr(Node *node) {
     println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
     return;
   case ND_LE:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (le)");
+    }
     // if (node->lhs->ty->is_unsigned) {
     //   println("  sgtu r1,r1,r2");
     // } else {
@@ -857,10 +942,16 @@ static void gen_expr(Node *node) {
     println("\txor\tr1\tr1\tat"); // xor with 0b1 to flip the bit
     return;
   case ND_SHL:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (shl)");
+    }
     // println("  sll%s r1,r1,r2", suffix);
     println("\tlsh\tr1\tr1\tr2");
     return;
   case ND_SHR:
+    if (opt_emit_debug) {
+      println("\t; gen_expr (shr)");
+    }
     // negate the shift amount r2 (to shift right)
     println("\tset\tat\t#0");
     println("\tsub\tr2\tat\tr2");
