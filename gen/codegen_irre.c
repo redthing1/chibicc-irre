@@ -62,6 +62,7 @@ static void pop(int reg) {
   // load the value of the reg from the stack
   // println("\tldw\tr%d\tsp\t#0", reg);
   println("\tldw\t%s\tsp\t#0", R_ARG[reg]);
+  println("\tadi\tsp\tsp\t#4");
   depth--;
 }
 
