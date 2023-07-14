@@ -101,7 +101,7 @@ static void gen_addr(Node *node) {
       println("_L_b1_%d:", c);
       // println("  auipc r1,%%pcrel_hi(%s)", node->var->name);
       // println("  addi r1,r1,%%pcrel_lo(_L_b1_%d)", c);
-      println("\tset\tat\t::%s", node->var->name);
+      println("\tset\tr20\t::%s", node->var->name);
       return;
     }
 
@@ -731,7 +731,7 @@ static void gen_expr(Node *node) {
     }
 
     // println("  jalr at");
-    println("\tcal\tat");
+    println("\tcal\tr20");
 
     if (stack_args) {
       depth -= stack_args;
