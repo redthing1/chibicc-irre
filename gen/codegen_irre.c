@@ -1220,10 +1220,10 @@ static void emit_text(Obj *prog) {
 
     // Epilogue
     println("_L_return_%s:", fn->name);
-    // println("  li r9,%d", fn->stack_size + 16);
-    // println("  add sp,sp,r9");
+    // println("  li t1,%d", fn->stack_size + 16);
+    // println("  add sp,sp,t1");
     // println("  ld ra,-8(sp)");
-    // println("  ld r8,-16(sp)");
+    // println("  ld s0,-16(sp)");
     // println("  ret");
 
     if (opt_emit_debug) {
@@ -1231,6 +1231,7 @@ static void emit_text(Obj *prog) {
     }
     println("\tset\tat\t#%d", fn->stack_size + 16);
     println("\tadd\tsp\tsp\tat");
+    println("\tadi\tsp\tsp\t#8");
     println("\tldw\tlr\tsp\t#-4");
     println("\tldw\t%s\tsp\t#-8", R_BP);
     println("\tret");
