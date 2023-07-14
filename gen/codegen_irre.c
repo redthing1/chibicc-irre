@@ -4,12 +4,16 @@
 
 int ptr_size_irre = 4;
 
-#define GP_MAX 8
+#define GP_MAX 6
 #define FP_MAX 8
 
-const char *R_ARG[] = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"};
-const char *R_SAVED = "r8";
+// general purpose registers
+const char *R_ARG[] = {"r1", "r2", "r3", "r4", "r5", "r6", "r7"};
+// base pointer
+const char *R_BP = "r8";
+// temporary registers
 const char *R_TMP[] = {"r9", "r10"};
+// scratch registers
 const char *R_SCRATCH[] = {"r11", "r12", "r13", "r14",
                            "r15", "r16", "r17", "r18"};
 
@@ -38,6 +42,9 @@ static int count(void) {
 }
 
 static void push(int reg) {
+  if (opt_emit_debug) {
+    println("\t; push(%d)", reg);
+  }
   // lower the stack pointer by 4 bytes
   println("\tsbi\tsp\tsp\t#4");
   // store the value of r1 to the stack
@@ -47,6 +54,9 @@ static void push(int reg) {
 }
 
 static void pop(int reg) {
+  if (opt_emit_debug) {
+    println("\t; pop(%d)", reg);
+  }
   // println("  ld a%d,0(sp)", reg);
   // println("  addi sp,sp,8");
   // load the value of the reg from the stack
@@ -80,7 +90,7 @@ static void gen_addr(Node *node) {
         println("\t; gen_addr (local) '%s'", node->var->name);
       }
       println("\tset\tat\t#%d", -(node->var->offset - node->var->ty->size));
-      println("\tsub\tr1\t%s\tat", R_SAVED);
+      println("\tsub\tr1\t%s\tat", R_BP);
       return;
     }
 
@@ -478,6 +488,9 @@ static void gen_expr(Node *node) {
     }
 
     // println("  li r1,%ld", node->val);
+    if (opt_emit_debug) {
+      println("\t; gen_expr (num) %ld", node->val);
+    }
     println("\tset\tr1\t#%ld", node->val);
     return;
   }
@@ -537,14 +550,15 @@ static void gen_expr(Node *node) {
       // println("  li t1,%d", offset);
       // println("  add t1,t1,s0");
       // println("  sb zero,0(t1)", offset);
-      if (opt_emit_debug) {
-        println("\t; gen_expr (memzero) '%s'", node->var->name);
-      }
-      int positive_offset = -offset;
-      println("\tset\tat\t#%d", positive_offset);
-      println("\tsub\tat\t%s\tat", R_SAVED); // at = bp - offset
-      println("\tset\tad\t#0");
-      println("\tstb\tad\tat\t#0");
+      // TODO: re enable MEMZERO
+      // if (opt_emit_debug) {
+      //   println("\t; gen_expr (memzero) '%s'", node->var->name);
+      // }
+      // int positive_offset = -offset;
+      // println("\tset\tat\t#%d", positive_offset);
+      // println("\tsub\tat\t%s\tat", R_BP); // at = bp - offset
+      // println("\tset\tad\t#0");
+      // println("\tstb\tad\tat\t#0");
     }
     return;
   }
@@ -1100,7 +1114,7 @@ static void store_gp(int r, int offset, int sz) {
   // println("\tset\tat\t#%d", offset - sz);
   int positive_offset = -(offset - sz);
   println("\tset\tat\t#%d", positive_offset);
-  println("\tsub\tat\t%s\tat", R_SAVED);
+  println("\tsub\tat\t%s\tat", R_BP);
   switch (sz) {
   case 1:
     // println("  sb a%d,0(r9)", r);
@@ -1168,9 +1182,9 @@ static void emit_text(Obj *prog) {
     }
     // save return address and base pointer
     println("\tstw\tlr\tsp\t#-4");
-    println("\tstw\t%s\tsp\t#-8", R_SAVED);
+    println("\tstw\t%s\tsp\t#-8", R_BP);
     // move base pointer
-    println("\tsbi\t%s\tsp\t#8", R_SAVED);
+    println("\tsbi\t%s\tsp\t#8", R_BP);
     // lower stack pointer for function body
     println("\tset\tat\t#%d", fn->stack_size + 16);
     println("\tsub\tsp\tsp\tat");
@@ -1218,7 +1232,7 @@ static void emit_text(Obj *prog) {
     println("\tset\tat\t#%d", fn->stack_size + 16);
     println("\tadd\tsp\tsp\tat");
     println("\tldw\tlr\tsp\t#-4");
-    println("\tldw\t%s\tsp\t#-8", R_SAVED);
+    println("\tldw\t%s\tsp\t#-8", R_BP);
     println("\tret");
   }
 }
