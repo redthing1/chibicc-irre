@@ -256,24 +256,45 @@ static int getTypeId(Type *ty) {
 }
 
 // The table for type casts
-static char i32i8[] = "  slliw r1,r1,24\n  sraiw r1,r1,24";
-static char i32u8[] = "  andi r1,r1,0xff";
-static char i32i16[] = "  slliw r1,r1,16\n  sraiw r1,r1,16";
-static char i32u16[] = "  slli r1,r1,48\n  srli r1,r1,48";
+// static char i32i8[] = "  slliw r1,r1,24\n  sraiw r1,r1,24";
+// static char i32u8[] = "  andi r1,r1,0xff";
+// static char i32i16[] = "  slliw r1,r1,16\n  sraiw r1,r1,16";
+// static char i32u16[] = "  slli r1,r1,48\n  srli r1,r1,48";
 
-static char u64i32[] = "  slli r1,r1,32\n  srli r1,r1,32";
+// static char u64i32[] = "  slli r1,r1,32\n  srli r1,r1,32";
 
-static char i32f32[] = "  fcvt.s.w fa0,r1";
-static char i32f64[] = "  fcvt.d.w fa0,r1";
+// static char i32f32[] = "  fcvt.s.w fa0,r1";
+// static char i32f64[] = "  fcvt.d.w fa0,r1";
 
-static char u32f32[] = "  fcvt.s.wu fa0,r1";
-static char u32f64[] = "  fcvt.d.wu fa0,r1";
+// static char u32f32[] = "  fcvt.s.wu fa0,r1";
+// static char u32f64[] = "  fcvt.d.wu fa0,r1";
 
-static char i64f32[] = "  fcvt.s.l fa0,r1";
-static char i64f64[] = "  fcvt.d.l fa0,r1";
+// static char i64f32[] = "  fcvt.s.l fa0,r1";
+// static char i64f64[] = "  fcvt.d.l fa0,r1";
 
-static char u64f32[] = "  fcvt.s.lu fa0,r1";
-static char u64f64[] = "  fcvt.d.lu fa0,r1";
+// static char u64f32[] = "  fcvt.s.lu fa0,r1";
+// static char u64f64[] = "  fcvt.d.lu fa0,r1";
+static char i32i8[] = "\tlsi\tr1\tr1\t#24\n\tset\tad\t#0\n\tset\tat\t#"
+                      "24\n\tsub\tat\tad\tat\n\tash\tr1\tr1\tat";
+static char i32u8[] = "\tset\tat\t$ff\n\tand\tr1\tr1\tat";
+static char i32i16[] = "\tlsi\tr1\tr1\t#16\n\tset\tad\t#0\n\tset\tat\t#"
+                       "16\n\tsub\tat\tad\tat\n\tash\tr1\tr1\tat";
+static char i32u16[] = "\tlsi\tr1\tr1\t#48\n\tset\tad\t#0\n\tset\tat\t#"
+                       "48\n\tsub\tat\tad\tat\n\tash\tr1\tr1\tat";
+
+static char u64i32[] = "\t%%error: u64i32";
+
+static char i32f32[] = "\t%%error: i32f32";
+static char i32f64[] = "\t%%error: i32f64";
+
+static char u32f32[] = "\t%%error: u32f32";
+static char u32f64[] = "\t%%error: u32f64";
+
+static char i64f32[] = "\t%%error: i64f32";
+static char i64f64[] = "\t%%error: i64f64";
+
+static char u64f32[] = "\t%%error: u64f32";
+static char u64f64[] = "\t%%error: u64f64";
 
 static char f32i8[] = "  fcvt.w.s r1,fa0,rtz\n  andi r1,r1,0xff";
 static char f32u8[] = "  fcvt.wu.s r1,fa0,rtz\n  andi r1,r1,0xff";
@@ -326,6 +347,10 @@ static char *cast_table[][10] = {
 };
 
 static void cast(Type *from, Type *to) {
+  // if (opt_emit_debug) {
+  //   println("\t; cast(Type(k=%d,sz=%d) -> Type(k=%d,sz=%d)", from->kind,
+  //   from->size, to->kind, to->size);
+  // }
   if (to->kind == TY_VOID) {
     return;
   }
@@ -338,6 +363,10 @@ static void cast(Type *from, Type *to) {
   int t1 = getTypeId(from);
   int t2 = getTypeId(to);
   if (cast_table[t1][t2]) {
+    if (opt_emit_debug) {
+      println("\t; cast(Type(k=%d,sz=%d) -> Type(k=%d,sz=%d)", from->kind,
+              from->size, to->kind, to->size);
+    }
     println(cast_table[t1][t2]);
   }
 }
@@ -743,8 +772,14 @@ static void gen_expr(Node *node) {
     // respectively. We clear the upper bits here.
     switch (node->ty->kind) {
     case TY_BOOL:
+      if (opt_emit_debug) {
+        println("\t; gen_expr (funcall) > bool");
+      }
       println("  andi r1,r1,0xff");
     case TY_CHAR:
+      if (opt_emit_debug) {
+        println("\t; gen_expr (funcall) > char");
+      }
       if (node->ty->is_unsigned) {
         println("  andi r1,r1,0xff");
       } else {
@@ -753,6 +788,9 @@ static void gen_expr(Node *node) {
       }
       return;
     case TY_SHORT:
+      if (opt_emit_debug) {
+        println("\t; gen_expr (funcall) > short");
+      }
       if (node->ty->is_unsigned) {
         println("  slli r1,r1,48");
         println("  srli r1,r1,48");
@@ -932,9 +970,9 @@ static void gen_expr(Node *node) {
     // }
     // println("  xori r1,r1,1");
     println("\ttcu\tr1\tr1\tr2"); // r1 = -1,0,1
-    println("\tseq\tr1\tr1\t#1");  // set r1=1 if r1==1
-    println("\tset\tat\t#1");      // at = 0b01
-    println("\txor\tr1\tr1\tat");  // flip the bit
+    println("\tseq\tr1\tr1\t#1"); // set r1=1 if r1==1
+    println("\tset\tat\t#1");     // at = 0b01
+    println("\txor\tr1\tr1\tat"); // flip the bit
     return;
   case ND_SHL:
     if (opt_emit_debug) {
