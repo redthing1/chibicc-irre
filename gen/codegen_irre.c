@@ -525,6 +525,9 @@ static void gen_expr(Node *node) {
       println("\t; gen_expr (num) %ld", node->val);
     }
     println("\tset\tr1\t#%ld", node->val);
+
+    // TODO: handle this based on size
+
     return;
   }
   case ND_NEG:
