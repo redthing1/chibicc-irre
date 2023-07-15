@@ -775,16 +775,25 @@ static void gen_expr(Node *node) {
       if (opt_emit_debug) {
         println("\t; gen_expr (funcall) > bool");
       }
-      println("  andi r1,r1,0xff");
+      // println("  andi r1,r1,0xff");
+      println("\tset\tat\t$ff");
+      println("\tand\tr1\tr1\tat");
     case TY_CHAR:
       if (opt_emit_debug) {
         println("\t; gen_expr (funcall) > char");
       }
       if (node->ty->is_unsigned) {
-        println("  andi r1,r1,0xff");
+        // println("  andi r1,r1,0xff");
+        println("\tset\tat\t$ff");
+        println("\tand\tr1\tr1\tat");
       } else {
-        println("  slliw r1,r1,24");
-        println("  sraiw r1,r1,24");
+        // println("  slliw r1,r1,24");
+        // println("  sraiw r1,r1,24");
+        println("\tset\tat\t#24");
+        println("\tlsh\tr1\tr1\tat");
+        println("\tset\tad\t#0");
+        println("\tsub\tat\tad\tat");
+        println("\tash\tr1\tr1\tat");
       }
       return;
     case TY_SHORT:
