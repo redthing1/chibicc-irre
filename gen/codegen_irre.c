@@ -249,8 +249,8 @@ static int getTypeId(Type *ty) {
     return F32;
   case TY_DOUBLE:
     return F64;
-  case TY_PTR:
-    return U32; // irre-specific: 32-bit pointers
+  // case TY_PTR: // NOTE: do not enable, this breaks everything
+  //   return U32; // irre-specific: 32-bit pointers
   default:
     return U64;
     ;
