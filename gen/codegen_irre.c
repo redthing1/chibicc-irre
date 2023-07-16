@@ -364,11 +364,19 @@ static void cast(Type *from, Type *to) {
 
   int t1 = getTypeId(from);
   int t2 = getTypeId(to);
+  if (opt_emit_debug) {
+    println("\t; cast(Type(k=%d,sz=%d,tid=%d) -> Type(k=%d,sz=%d,tid=%d)",
+            from->kind, from->size, t1, to->kind, to->size, t2);
+  }
+
+  // check if it's num-to-ptr or ptr-to-num of same size
+  if ((from->kind == TY_PTR || to->kind == TY_PTR) &&
+      (from->size == to->size)) {
+    println("\t; silent cast, due to ptr/num of same size");
+    return; // do nothing
+  }
+
   if (cast_table[t1][t2]) {
-    if (opt_emit_debug) {
-      println("\t; cast(Type(k=%d,sz=%d,tid=%d) -> Type(k=%d,sz=%d,tid=%d)",
-              from->kind, from->size, t1, to->kind, to->size, t2);
-    }
     println(cast_table[t1][t2]);
   }
 }
