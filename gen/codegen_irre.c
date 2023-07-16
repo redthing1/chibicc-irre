@@ -616,7 +616,8 @@ static void gen_expr(Node *node) {
     return;
   case ND_MEMZERO: {
     if (opt_emit_debug) {
-      println("\t; gen_expr (memzero) (%d)", node->var->offset);
+      println("\t; gen_expr (memzero) (offset=%d, size=%d)", node->var->offset,
+              node->var->ty->size);
     }
     int offset = node->var->offset;
     // for (int i = 0; i < node->var->ty->size; i++) {
@@ -629,11 +630,19 @@ static void gen_expr(Node *node) {
       println("\t%%error\t; memzero offset > 0 (%d)", offset);
     }
     for (int i = 0; i < node->var->ty->size; i++) {
-      offset -= sizeof(char);
-      println("\tset\tat\t#%d", -offset);
-      println("\tsub\tat\tr8\tat");
-      println("\tset\tad\t#0");
-      println("\tstb\tad\tat\t#0");
+      if (offset >= 4) {
+        offset -= 4;
+        println("\tset\tat\t#%d", -offset);
+        println("\tsub\tat\tr8\tat");
+        println("\tset\tad\t#0");
+        println("\tstw\tad\tat\t#0");
+      } else {
+        offset -= 1;
+        println("\tset\tat\t#%d", -offset);
+        println("\tsub\tat\tr8\tat");
+        println("\tset\tad\t#0");
+        println("\tstb\tad\tat\t#0");
+      }
     }
     return;
   }
