@@ -249,6 +249,8 @@ static int getTypeId(Type *ty) {
     return F32;
   case TY_DOUBLE:
     return F64;
+  case TY_PTR:
+    return U32; // irre-specific: 32-bit pointers
   default:
     return U64;
     ;
@@ -364,8 +366,8 @@ static void cast(Type *from, Type *to) {
   int t2 = getTypeId(to);
   if (cast_table[t1][t2]) {
     if (opt_emit_debug) {
-      println("\t; cast(Type(k=%d,sz=%d) -> Type(k=%d,sz=%d)", from->kind,
-              from->size, to->kind, to->size);
+      println("\t; cast(Type(k=%d,sz=%d,tid=%d) -> Type(k=%d,sz=%d,tid=%d)",
+              from->kind, from->size, t1, to->kind, to->size, t2);
     }
     println(cast_table[t1][t2]);
   }
