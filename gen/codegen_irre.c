@@ -616,23 +616,24 @@ static void gen_expr(Node *node) {
     return;
   case ND_MEMZERO: {
     if (opt_emit_debug) {
-      println("\t; gen_expr (memzero)");
+      println("\t; gen_expr (memzero) (%d)", node->var->offset);
     }
     int offset = node->var->offset;
+    // for (int i = 0; i < node->var->ty->size; i++) {
+    //   offset -= sizeof(char);
+    //   // println("  li t1,%d", offset);
+    //   // println("  add t1,t1,s0");
+    //   // println("  sb zero,0(t1)", offset);
+    // }
+    if (offset > 0) {
+      println("\t%%error\t; memzero offset > 0 (%d)", offset);
+    }
     for (int i = 0; i < node->var->ty->size; i++) {
       offset -= sizeof(char);
-      // println("  li t1,%d", offset);
-      // println("  add t1,t1,s0");
-      // println("  sb zero,0(t1)", offset);
-      // TODO: re enable MEMZERO
-      // if (opt_emit_debug) {
-      //   println("\t; gen_expr (memzero) '%s'", node->var->name);
-      // }
-      // int positive_offset = -offset;
-      // println("\tset\tat\t#%d", positive_offset);
-      // println("\tsub\tat\t%s\tat", R_BP); // at = bp - offset
-      // println("\tset\tad\t#0");
-      // println("\tstb\tad\tat\t#0");
+      println("\tset\tat\t#%d", -offset);
+      println("\tsub\tat\tr8\tat");
+      println("\tset\tad\t#0");
+      println("\tstb\tad\tat\t#0");
     }
     return;
   }
